@@ -1,0 +1,67 @@
+diff --git a/pylint/checkers/similar.py b/pylint/checkers/similar.py
+index 96c870f5..e9cedad8 100644
+--- a/pylint/checkers/similar.py
++++ b/pylint/checkers/similar.py
+@@ -50,7 +50,8 @@ class Similar:
+         self.ignore_imports = ignore_imports
+         self.linesets = []
+ 
+-    def append_stream(self, streamid, stream, encoding=None):
++    def append_stream(self, streamid, stream, encoding=None, 
++                      state_lines=None):
+         """append a file to search for similarities"""
+         if encoding is None:
+             readlines = stream.readlines
+@@ -64,6 +65,7 @@ class Similar:
+                     self.ignore_comments,
+                     self.ignore_docstrings,
+                     self.ignore_imports,
++                    state_lines,
+                 )
+             )
+         except UnicodeDecodeError:
+@@ -156,7 +158,7 @@ class Similar:
+                 yield from self._find_common(lineset, lineset2)
+ 
+ 
+-def stripped_lines(lines, ignore_comments, ignore_docstrings, ignore_imports):
++def stripped_lines(lines, ignore_comments, ignore_docstrings, ignore_imports, state_lines=None):
+     """return lines with leading/trailing whitespace and any ignored code
+     features removed
+     """
+@@ -177,6 +179,9 @@ def stripped_lines(lines, ignore_comments, ignore_docstrings, ignore_imports):
+     strippedlines = []
+     docstring = None
+     for lineno, line in enumerate(lines, start=1):
++        if state_lines and lineno in state_lines and not state_lines[lineno]:
++            strippedlines.append('')
++            continue
+         line = line.strip()
+         if ignore_docstrings:
+             if not docstring and any(
+@@ -210,11 +215,12 @@ class LineSet:
+         ignore_comments=False,
+         ignore_docstrings=False,
+         ignore_imports=False,
++        state_lines=None,
+     ):
+         self.name = name
+         self._real_lines = lines
+         self._stripped_lines = stripped_lines(
+-            lines, ignore_comments, ignore_docstrings, ignore_imports
++            lines, ignore_comments, ignore_docstrings, ignore_imports, state_lines
+         )
+         self._index = self._mk_index()
+ 
+@@ -371,8 +377,10 @@ class SimilarChecker(BaseChecker, Similar):
+ 
+         stream must implement the readlines method
+         """
++        state_lines = self.linter.file_state._module_msgs_state.get('R0801')
+         with node.stream() as stream:
+-            self.append_stream(self.linter.current_name, stream, node.file_encoding)
++            self.append_stream(self.linter.current_name, stream, node.file_encoding,
++                               state_lines)
+ 
+     def close(self):
+         """compute and display similarities on closing (i.e. end of parsing)"""
